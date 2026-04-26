@@ -1,4 +1,4 @@
-from src.services.workflow_service import WorkflowService
+from services.workflow_service import WorkflowService
 
 
 def main() -> None:
