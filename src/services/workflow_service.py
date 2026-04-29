@@ -1,7 +1,7 @@
 from pathlib import Path
 import joblib
 import pandas as pd
-from config import EDA_OUTPUT_DIR, MODEL_OUTPUT_DIR
+from config import EDA_OUTPUT_DIR, MODEL_OUTPUT_DIR, ensure_directories
 from services.classifier_service import ClassifierService
 from services.dataset_indexer import DatasetIndexer
 from services.eda_service import EDAService
@@ -12,26 +12,24 @@ class WorkflowService:
     """Coordinate the shared workflow used by batch, GUI, and console entry points."""
 
     def __init__(self) -> None:
-        EDA_OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
-        MODEL_OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+        ensure_directories()
 
         self.indexer = DatasetIndexer()
         self.preprocessor = ImagePreprocessor()
         self.classifier = ClassifierService(self.preprocessor, MODEL_OUTPUT_DIR)
         self.dataframe: pd.DataFrame | None = None
 
-    def load_dataframe(self) -> pd.DataFrame:
+    def load_dataframe(self) -> None:
         """Load and cache the indexed dataset."""
 
         if self.dataframe is None:
             self.dataframe = self.indexer.build_dataframe()
-            return self.dataframe
 
     def show_summary(self) -> dict[str, float]:
         """Build and print dataset summary statistics."""
 
-        dataframe = self.load_dataframe()
-        eda = EDAService(dataframe, EDA_OUTPUT_DIR)
+        self.load_dataframe()
+        eda = EDAService(self.dataframe, EDA_OUTPUT_DIR)
         summary = eda.build_summary()
         print(summary)
         return summary
@@ -39,16 +37,16 @@ class WorkflowService:
     def generate_eda(self) -> None:
         """Create and save the main EDA outputs."""
 
-        dataframe = self.load_dataframe()
-        eda = EDAService(dataframe, EDA_OUTPUT_DIR)
+        self.load_dataframe()
+        eda = EDAService(self.dataframe, EDA_OUTPUT_DIR)
         eda.save_class_distribution()
         eda.save_image_size_distribution()
 
     def train_model(self) -> dict[str, object]:
         """Train the baseline model and save it to disk."""
 
-        dataframe = self.load_dataframe()
-        results = self.classifier.train(dataframe)
+        self.load_dataframe()
+        results = self.classifier.train(self.dataframe)
         self.classifier.save_model()
         return results
 

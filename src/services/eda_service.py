@@ -39,7 +39,7 @@ class EDAService:
         """Return key dataset summary statistics."""
 
         return {
-            "total_images": int(len(self.dataframe)),
+            "total_images": len(self.dataframe),
             "total_classes": int(self.dataframe["label"].nunique()),
             "mean_width": float(self.dataframe["width"].mean()),
             "mean_height": float(self.dataframe["height"].mean()),
