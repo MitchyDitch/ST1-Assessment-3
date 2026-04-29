@@ -2,10 +2,10 @@ from pathlib import Path
 import joblib
 import pandas as pd
 from config import EDA_OUTPUT_DIR, MODEL_OUTPUT_DIR
-from classifier_service import ClassifierService
-from dataset_indexer import DatasetIndexer
-from eda_service import EDAService
-from image_preprocessor import ImagePreprocessor
+from services.classifier_service import ClassifierService
+from services.dataset_indexer import DatasetIndexer
+from services.eda_service import EDAService
+from services.image_preprocessor import ImagePreprocessor
 
 
 class WorkflowService:

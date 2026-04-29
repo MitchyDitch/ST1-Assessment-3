@@ -9,3 +9,10 @@ MODEL_OUTPUT_DIR = OUTPUTS_DIR / "models"
 
 IMAGE_SIZE = (128, 128)
 SUPPORTED_IMAGE_FORMATS = {".jpg", ".jpeg", ".png", ".bmp"}
+
+
+def ensure_directories() -> None:
+    """Create necessary output directories if they don't exist."""
+
+    for directory in [EDA_OUTPUT_DIR, MODEL_OUTPUT_DIR]:
+        directory.mkdir(parents=True, exist_ok=True)
