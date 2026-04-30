@@ -1,4 +1,3 @@
-from pathlib import Path
 import joblib
 import pandas as pd
 from config import EDA_OUTPUT_DIR, MODEL_OUTPUT_DIR, ensure_directories
