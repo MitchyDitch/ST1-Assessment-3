@@ -1,10 +1,7 @@
-import joblib
 import pandas as pd
-from config import EDA_OUTPUT_DIR, MODEL_OUTPUT_DIR, ensure_directories
-from services.classifier_service import ClassifierService
+from config import EDA_OUTPUT_DIR, ensure_directories
 from services.dataset_indexer import DatasetIndexer
 from services.eda_service import EDAService
-from services.image_preprocessor import ImagePreprocessor
 
 
 class WorkflowService:
@@ -14,8 +11,6 @@ class WorkflowService:
         ensure_directories()
 
         self.indexer = DatasetIndexer()
-        self.preprocessor = ImagePreprocessor()
-        self.classifier = ClassifierService(self.preprocessor, MODEL_OUTPUT_DIR)
         self.dataframe: pd.DataFrame | None = None
 
     def load_dataframe(self) -> None:
@@ -30,7 +25,6 @@ class WorkflowService:
         self.load_dataframe()
         eda = EDAService(self.dataframe, EDA_OUTPUT_DIR)
         summary = eda.build_summary()
-        print(summary)
         return summary
 
     def generate_eda(self) -> None:
@@ -41,31 +35,8 @@ class WorkflowService:
         eda.save_class_distribution()
         eda.save_image_size_distribution()
 
-    def train_model(self) -> dict[str, object]:
-        """Train the baseline model and save it to disk."""
-
-        self.load_dataframe()
-        results = self.classifier.train(self.dataframe)
-        self.classifier.save_model()
-        return results
-
-    def predict_image(self, file_path: str) -> str:
-        """Predict the class of one input image."""
-
-        model_path = MODEL_OUTPUT_DIR / "macro_classifier.joblib"
-        if model_path.exists():
-            self.classifier.model = joblib.load(model_path)
-
-        features = self.preprocessor.transform(file_path).reshape(1, -1)
-        prediction = self.classifier.model.predict(features)[0]
-        print(f"Predicted class: {prediction}")
-        return str(prediction)
-
     def run_full_pipeline(self) -> None:
-        """Run the default Stage 1 and Stage 2 workflow."""
+        """Run the default Stage 1 workflow."""
 
         self.show_summary()
         self.generate_eda()
-        results = self.train_model()
-        print(f"Training accuracy: {results['accuracy']:.4f}")
-        print(results["report"])
