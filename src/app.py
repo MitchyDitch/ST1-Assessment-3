@@ -8,12 +8,11 @@ from PIL import Image, ImageTk
 class MacroApp(tk.Tk):
     """Desktop GUI for macroinvertebrate image prediction."""
 
-    def __init__(self, preprocessor, model_path: Path) -> None:
+    def __init__(self, model_path: Path) -> None:
         super().__init__()
         self.title("Macroinvertebrate Image Analysis System")
         self.geometry("900x600")
 
-        self.preprocessor = preprocessor
         self.model = joblib.load(model_path)
         self.selected_file = None
 
@@ -38,3 +37,11 @@ class MacroApp(tk.Tk):
         photo = ImageTk.PhotoImage(image)
         self.image_label.configure(image=photo, text="")
         self.image_label.image = photo
+
+
+if __name__ == "__main__":
+    from services import WorkflowService
+
+    workflow = WorkflowService()
+    app = MacroApp(Path("outputs/models/macro_classifier.joblib"))
+    app.mainloop()
