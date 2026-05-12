@@ -20,8 +20,6 @@ from config import (
     REPORT_OUTPUT_DIR,
     SAMPLE_GRID_MAX_IMAGES,
     STAGE2_RECOMMENDATIONS_PATH,
-    UNUSUAL_ASPECT_RATIO_HIGH,
-    UNUSUAL_ASPECT_RATIO_LOW,
     VERY_SMALL_IMAGE_THRESHOLD,
     ensure_directories,
 )
@@ -44,8 +42,8 @@ class EDAService:
         self.dataframe = dataframe.copy()
         self.eda_output_dir = eda_output_dir
         self.report_output_dir = report_output_dir
-        readable_mask = self.dataframe["readable"].astype(bool)
-        self.readable_dataframe = self.dataframe[readable_mask]
+
+        # print(self.dataframe.columns)
 
         ensure_directories()
         sns.set_theme(style="whitegrid")
@@ -74,21 +72,17 @@ class EDAService:
     def generate_dataset_summary(self) -> Path:
         """Save a high-level dataset summary CSV."""
         class_counts = self.dataframe["label"].value_counts().sort_index()
-        readable = self.readable_dataframe
-        supported_types = ", ".join(sorted(self.dataframe["file_extension"].unique()))
 
         summary_rows = [
             ("total_images", len(self.dataframe)),
             ("total_classes", self.dataframe["label"].nunique()),
             ("images_per_class", self._format_class_counts(class_counts)),
-            ("mean_width", self._safe_round(readable["width"].mean())),
-            ("mean_height", self._safe_round(readable["height"].mean())),
-            ("min_width", self._safe_int(readable["width"].min())),
-            ("max_width", self._safe_int(readable["width"].max())),
-            ("min_height", self._safe_int(readable["height"].min())),
-            ("max_height", self._safe_int(readable["height"].max())),
-            ("number_of_unreadable_files", int((~self.dataframe["readable"]).sum())),
-            ("supported_file_types_found", supported_types),
+            ("mean_width", self._safe_round(self.dataframe["width"].mean())),
+            ("mean_height", self._safe_round(self.dataframe["height"].mean())),
+            ("min_width", self._safe_int(self.dataframe["width"].min())),
+            ("max_width", self._safe_int(self.dataframe["width"].max())),
+            ("min_height", self._safe_int(self.dataframe["height"].min())),
+            ("max_height", self._safe_int(self.dataframe["height"].max())),
         ]
 
         summary = pd.DataFrame(summary_rows, columns=["metric", "value"])
@@ -117,14 +111,13 @@ class EDAService:
 
     def generate_image_size_distribution_chart(self) -> Path:
         """Save width and height histograms in one figure."""
-        readable = self._require_readable_images()
 
         fig, axes = plt.subplots(1, 2, figsize=(12, 5))
-        sns.histplot(readable["width"], bins=20, ax=axes[0], color="#4C78A8")
+        sns.histplot(self.dataframe["width"], bins=20, ax=axes[0], color="#4C78A8")
         axes[0].set_title("Image Width Distribution")
         axes[0].set_xlabel("Width in pixels")
 
-        sns.histplot(readable["height"], bins=20, ax=axes[1], color="#F58518")
+        sns.histplot(self.dataframe["height"], bins=20, ax=axes[1], color="#F58518")
         axes[1].set_title("Image Height Distribution")
         axes[1].set_xlabel("Height in pixels")
 
@@ -136,10 +129,11 @@ class EDAService:
 
     def generate_width_height_scatter_plot(self) -> Path:
         """Save a scatter plot of image width versus height."""
-        readable = self._require_readable_images()
 
         plt.figure(figsize=(8, 6))
-        sns.scatterplot(data=readable, x="width", y="height", hue="label", alpha=0.75)
+        sns.scatterplot(
+            data=self.dataframe, x="width", y="height", hue="label", alpha=0.75
+        )
         plt.title("Image Width Versus Height")
         plt.xlabel("Width in pixels")
         plt.ylabel("Height in pixels")
@@ -153,8 +147,7 @@ class EDAService:
 
     def generate_sample_image_grid(self) -> Path:
         """Save a grid of representative readable sample images."""
-        readable = self._require_readable_images()
-        samples = self._select_representative_samples(readable)
+        samples = self._select_representative_samples()
 
         columns = min(4, len(samples))
         rows = int(np.ceil(len(samples) / columns))
@@ -182,10 +175,9 @@ class EDAService:
 
     def generate_width_by_class_boxplot(self) -> Path:
         """Save a boxplot comparing image widths by class."""
-        readable = self._require_readable_images()
 
         plt.figure(figsize=(11, 6))
-        sns.boxplot(data=readable, x="label", y="width", color="#72B7B2")
+        sns.boxplot(data=self.dataframe, x="label", y="width", color="#72B7B2")
         plt.title("Image Width by Class")
         plt.xlabel("Class label")
         plt.ylabel("Width in pixels")
@@ -199,10 +191,9 @@ class EDAService:
 
     def generate_height_by_class_boxplot(self) -> Path:
         """Save a boxplot comparing image heights by class."""
-        readable = self._require_readable_images()
 
         plt.figure(figsize=(11, 6))
-        sns.boxplot(data=readable, x="label", y="height", color="#54A24B")
+        sns.boxplot(data=self.dataframe, x="label", y="height", color="#54A24B")
         plt.title("Image Height by Class")
         plt.xlabel("Class label")
         plt.ylabel("Height in pixels")
@@ -216,8 +207,7 @@ class EDAService:
 
     def generate_pixel_intensity_histogram(self) -> Path:
         """Save a grayscale pixel intensity histogram from sampled images."""
-        readable = self._require_readable_images()
-        sample = readable.head(PIXEL_ANALYSIS_SAMPLE_SIZE)
+        sample = self.dataframe.head(PIXEL_ANALYSIS_SAMPLE_SIZE)
         intensity_values = []
 
         for _, row in sample.iterrows():
@@ -247,18 +237,11 @@ class EDAService:
         records = []
         for _, row in self.dataframe.iterrows():
             issues = []
-            if not bool(row["readable"]):
-                issues.append("unreadable_or_corrupted")
-            if bool(row["readable"]) and (
+            if (
                 row["width"] < VERY_SMALL_IMAGE_THRESHOLD
                 or row["height"] < VERY_SMALL_IMAGE_THRESHOLD
             ):
                 issues.append("very_small_image")
-            if bool(row["readable"]) and (
-                row["aspect_ratio"] < UNUSUAL_ASPECT_RATIO_LOW
-                or row["aspect_ratio"] > UNUSUAL_ASPECT_RATIO_HIGH
-            ):
-                issues.append("unusual_aspect_ratio")
 
             if issues:
                 records.append(
@@ -267,7 +250,7 @@ class EDAService:
                         "label": row["label"],
                         "width": row["width"],
                         "height": row["height"],
-                        "aspect_ratio": row["aspect_ratio"],
+                        "channels": row["channels"],
                         "issues": "; ".join(issues),
                     }
                 )
@@ -279,7 +262,7 @@ class EDAService:
                 "label",
                 "width",
                 "height",
-                "aspect_ratio",
+                "channels",
                 "issues",
             ],
         )
@@ -330,17 +313,17 @@ class EDAService:
 
     def generate_stage2_recommendations(self) -> Path:
         """Save EDA-based recommendations for future Stage 2 planning."""
-        readable = self._require_readable_images()
         class_counts = self.dataframe["label"].value_counts()
-        width_range = int(readable["width"].max() - readable["width"].min())
-        height_range = int(readable["height"].max() - readable["height"].min())
-        unreadable_count = int((~self.dataframe["readable"]).sum())
+        width_range = int(self.dataframe["width"].max() - self.dataframe["width"].min())
+        height_range = int(
+            self.dataframe["height"].max() - self.dataframe["height"].min()
+        )
         quality_issues = self._build_quality_issues_dataframe()
 
         smallest_class_count = int(class_counts.min())
         largest_class_count = int(class_counts.max())
         imbalance_ratio = largest_class_count / smallest_class_count
-        intensity_note = self._get_pixel_intensity_recommendation(readable)
+        intensity_note = self._get_pixel_intensity_recommendation()
 
         report = [
             "# Stage 2 Planning Recommendations",
@@ -374,15 +357,14 @@ class EDAService:
             "## Data Cleaning",
             "",
             (
-                f"The index found {unreadable_count} unreadable files and "
-                f"{len(quality_issues)} total quality issue rows. Future Stage 2 "
+                f"The index found {len(quality_issues)} total quality issue rows. Future Stage 2 "
                 "work should review corrupted, very small, or unusual-aspect-ratio "
                 "images before training."
             ),
             "",
             "## Recommended Future Stage 2 Workflow",
             "",
-            "1. Clean or remove unreadable and severely inconsistent images.",
+            "1. Clean or remove severely inconsistent images.",
             "2. Resize images to a fixed shape suitable for the chosen method.",
             "3. Apply pixel normalisation after checking intensity distributions.",
             "4. Use a stratified train/test split.",
@@ -395,21 +377,14 @@ class EDAService:
         )
         return STAGE2_RECOMMENDATIONS_PATH
 
-    def _require_readable_images(self) -> pd.DataFrame:
-        """Return readable images or raise a useful error."""
-        if self.readable_dataframe.empty:
-            raise ValueError("No readable images were found for EDA charts.")
-
-        return self.readable_dataframe
-
-    def _select_representative_samples(self, readable: pd.DataFrame) -> pd.DataFrame:
+    def _select_representative_samples(self) -> pd.DataFrame:
         """Select up to one image per class, then fill remaining slots."""
-        per_class = readable.groupby("label", group_keys=False).head(1)
+        per_class = self.dataframe.groupby("label", group_keys=False).head(1)
         if len(per_class) >= SAMPLE_GRID_MAX_IMAGES:
             return per_class.head(SAMPLE_GRID_MAX_IMAGES)
 
         remaining_slots = SAMPLE_GRID_MAX_IMAGES - len(per_class)
-        remaining = readable.drop(per_class.index).head(remaining_slots)
+        remaining = self.dataframe.drop(per_class.index).head(remaining_slots)
         return pd.concat([per_class, remaining])
 
     def _build_quality_issues_dataframe(self) -> pd.DataFrame:
@@ -417,16 +392,9 @@ class EDAService:
         records = []
         for _, row in self.dataframe.iterrows():
             issue_count = 0
-            if not bool(row["readable"]):
-                issue_count += 1
-            if bool(row["readable"]) and (
+            if (
                 row["width"] < VERY_SMALL_IMAGE_THRESHOLD
                 or row["height"] < VERY_SMALL_IMAGE_THRESHOLD
-            ):
-                issue_count += 1
-            if bool(row["readable"]) and (
-                row["aspect_ratio"] < UNUSUAL_ASPECT_RATIO_LOW
-                or row["aspect_ratio"] > UNUSUAL_ASPECT_RATIO_HIGH
             ):
                 issue_count += 1
 
@@ -435,9 +403,9 @@ class EDAService:
 
         return pd.DataFrame(records)
 
-    def _get_pixel_intensity_recommendation(self, readable: pd.DataFrame) -> str:
+    def _get_pixel_intensity_recommendation(self) -> str:
         """Create a short recommendation based on sampled grayscale intensity."""
-        sample = readable.head(PIXEL_ANALYSIS_SAMPLE_SIZE)
+        sample = self.dataframe.head(PIXEL_ANALYSIS_SAMPLE_SIZE)
         image_means = []
         image_standard_deviations = []
 
