@@ -1,8 +1,8 @@
 import pandas as pd
 from pathlib import Path
-from config import ensure_directories
-from services import DatasetIndexer
-from services.eda_service import EDAService
+from src.config import ensure_directories
+from .dataset_indexer import DatasetIndexer
+from .eda_service import EDAService
 
 
 class WorkflowService:

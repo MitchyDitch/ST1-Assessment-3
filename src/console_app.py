@@ -1,4 +1,4 @@
-from services import WorkflowService
+from src.services import WorkflowService
 from PIL import Image
 from pandas import read_csv
 
@@ -125,7 +125,7 @@ class ConsoleApp:
                 break
 
             else:
-                print("Invalid option. Please try again.")
+                print("\nInvalid option. Please try again.")
 
 
 if __name__ == "__main__":

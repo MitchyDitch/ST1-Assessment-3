@@ -12,7 +12,7 @@ import numpy as np
 import pandas as pd
 import seaborn as sns
 
-from config import (
+from ..config import (
     CLASS_IMBALANCE_REPORT_PATH,
     EDA_OUTPUT_DIR,
     PIXEL_ANALYSIS_SAMPLE_SIZE,

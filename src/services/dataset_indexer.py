@@ -2,7 +2,7 @@ from pathlib import Path
 import cv2
 import pandas as pd
 
-from config import RAW_DATA_DIR, SUPPORTED_IMAGE_FORMATS
+from src.config import RAW_DATA_DIR, SUPPORTED_IMAGE_FORMATS
 
 
 class DatasetIndexer:
